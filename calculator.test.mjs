@@ -9,7 +9,7 @@ import {
   createOtherCost,
   normalizeStoredState,
   STATE_VERSION,
-} from "../calculator.js";
+} from "./calculator.js";
 
 function closeTo(actual, expected) {
   assert.ok(

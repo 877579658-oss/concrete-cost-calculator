@@ -27,7 +27,7 @@ node server.mjs
 ## 测试
 
 ```powershell
-node --test tests/calculator.test.mjs
+node --test calculator.test.mjs
 ```
 
 ## 部署到 GitHub Pages
