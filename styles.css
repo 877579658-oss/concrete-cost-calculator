@@ -168,6 +168,17 @@ h1 {
   font-size: 0.82rem;
 }
 
+.summary-grade {
+  display: inline-block;
+  margin-right: 5px;
+  padding: 3px 7px;
+  color: #fff7ee;
+  border-radius: 6px;
+  background: var(--accent);
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+}
+
 .main-total {
   margin-bottom: 2px;
   font-size: clamp(2.25rem, 5vw, 3.1rem);
@@ -261,6 +272,8 @@ h1 {
 }
 
 .panel {
+  width: 100%;
+  min-width: 0;
   padding: 24px;
   border: 1px solid rgba(75, 72, 63, 0.1);
   border-radius: 22px;
@@ -270,6 +283,7 @@ h1 {
 
 .section-heading {
   display: flex;
+  min-width: 0;
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 20px;
@@ -335,6 +349,94 @@ select:focus-visible {
 
 .button-danger:hover {
   background: var(--danger-soft);
+}
+
+.grade-picker {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid #e4d9ca;
+  border-radius: 15px;
+  background: #faf5ec;
+}
+
+.grade-picker-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+
+.grade-picker-title span {
+  color: #574d42;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.grade-picker-title small {
+  color: #887d70;
+  font-size: 0.68rem;
+  text-align: right;
+}
+
+.grade-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.grade-tab {
+  min-width: 54px;
+  min-height: 38px;
+  padding: 7px 12px;
+  color: #665b4f;
+  border: 1px solid #dbd0c1;
+  border-radius: 999px;
+  background: #fffdf8;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.grade-tab:hover {
+  border-color: #c49278;
+}
+
+.grade-tab.active {
+  color: #fff;
+  border-color: var(--teal);
+  background: var(--teal);
+  box-shadow: 0 4px 12px rgba(29, 103, 94, 0.18);
+}
+
+.grade-add-row {
+  display: flex;
+  margin-top: 11px;
+  gap: 8px;
+}
+
+.grade-add-row input {
+  min-width: 0;
+  min-height: 42px;
+  flex: 1;
+  padding: 9px 11px;
+  color: var(--ink);
+  border: 1px solid #d7ccbd;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 1rem;
+}
+
+.grade-add-row .button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.grade-message {
+  min-height: 1.2em;
+  margin: 7px 0 0;
+  color: var(--teal);
+  font-size: 0.7rem;
 }
 
 .cost-list {
@@ -632,6 +734,14 @@ select:focus-visible {
   .row-fields,
   .row-fields.fees {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grade-picker {
+    padding: 12px;
+  }
+
+  .grade-picker-title small {
+    display: none;
   }
 
   .row-heading {

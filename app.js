@@ -2,8 +2,10 @@ import {
   calculateLine,
   calculateTotals,
   createDefaultState,
+  createGrade,
   createMaterial,
   createOtherCost,
+  getActiveGrade,
   normalizeStoredState,
   priceUnitsForQuantity,
 } from "./calculator.js";
@@ -13,6 +15,9 @@ const STORAGE_KEY = "concrete-cost-calculator.v1";
 const materialsList = document.querySelector("#materialsList");
 const otherCostsList = document.querySelector("#otherCostsList");
 const saveStatus = document.querySelector("#saveStatus");
+const gradeOptions = document.querySelector("#gradeOptions");
+const newGradeName = document.querySelector("#newGradeName");
+const gradeMessage = document.querySelector("#gradeMessage");
 
 const summaryElements = {
   postDeductionCost: document.querySelector("#postDeductionCost"),
@@ -23,6 +28,7 @@ const summaryElements = {
   materialsGross: document.querySelector("#materialsGross"),
   otherGross: document.querySelector("#otherGross"),
   summaryError: document.querySelector("#summaryError"),
+  summaryGrade: document.querySelector("#summaryGrade"),
 };
 
 const currencyFormatter = new Intl.NumberFormat("zh-CN", {
@@ -103,7 +109,7 @@ function taxPresetOptions(rate) {
   `;
 }
 
-function materialRowTemplate(line, index) {
+function materialRowTemplate(line, quantity, index) {
   return `
     <article class="cost-row" data-kind="material" data-id="${escapeHtml(line.id)}">
       <div class="row-heading">
@@ -134,7 +140,7 @@ function materialRowTemplate(line, index) {
               inputmode="decimal"
               min="0"
               step="any"
-              value="${escapeHtml(line.quantity)}"
+              value="${escapeHtml(quantity)}"
               placeholder="0"
               aria-label="每方用量"
             />
@@ -284,9 +290,35 @@ function otherCostRowTemplate(line, index) {
   `;
 }
 
+function renderGradeTabs() {
+  const activeGrade = getActiveGrade(state);
+  summaryElements.summaryGrade.textContent = activeGrade.name;
+  gradeOptions.innerHTML = state.grades
+    .map(
+      (grade) => `
+        <button
+          class="grade-tab ${grade.id === activeGrade.id ? "active" : ""}"
+          data-action="select-grade"
+          data-grade-id="${escapeHtml(grade.id)}"
+          type="button"
+          role="tab"
+          aria-selected="${grade.id === activeGrade.id}"
+        >${escapeHtml(grade.name)}</button>
+      `,
+    )
+    .join("");
+}
+
 function renderRows() {
+  const activeGrade = getActiveGrade(state);
+  renderGradeTabs();
+
   materialsList.innerHTML = state.materials.length
-    ? state.materials.map(materialRowTemplate).join("")
+    ? state.materials
+        .map((line, index) =>
+          materialRowTemplate(line, activeGrade.quantities[line.id] ?? "", index),
+        )
+        .join("")
     : '<div class="empty-state">尚未添加原材料，点击“添加材料”开始。</div>';
 
   otherCostsList.innerHTML = state.otherCosts.length
@@ -369,7 +401,11 @@ function updateField(control) {
   const field = control.dataset.field;
   if (!line || !field) return;
 
-  line[field] = control.value;
+  if (kind === "material" && field === "quantity") {
+    getActiveGrade(state).quantities[line.id] = control.value;
+  } else {
+    line[field] = control.value;
+  }
 
   if (field === "quantityUnit") {
     const allowedPriceUnits = priceUnitsForQuantity(line.quantityUnit);
@@ -402,7 +438,48 @@ function handleDelete(button) {
   const index = collection.findIndex((line) => line.id === row.dataset.id);
   if (index === -1) return;
 
-  collection.splice(index, 1);
+  const [removedLine] = collection.splice(index, 1);
+  if (kind === "material") {
+    state.grades.forEach((grade) => {
+      delete grade.quantities[removedLine.id];
+    });
+  }
+  renderRows();
+  scheduleSave();
+}
+
+function selectGrade(gradeId) {
+  if (!state.grades.some((grade) => grade.id === gradeId)) return;
+  state.activeGradeId = gradeId;
+  gradeMessage.textContent = "";
+  renderRows();
+  scheduleSave();
+}
+
+function addGrade() {
+  const name = newGradeName.value.trim();
+  if (!name) {
+    gradeMessage.textContent = "请输入强度等级，例如 C45。";
+    newGradeName.focus();
+    return;
+  }
+
+  const existing = state.grades.find(
+    (grade) =>
+      grade.name.toLocaleUpperCase("zh-CN") ===
+      name.toLocaleUpperCase("zh-CN"),
+  );
+  if (existing) {
+    selectGrade(existing.id);
+    gradeMessage.textContent = `${existing.name} 已存在，已切换到该等级。`;
+    return;
+  }
+
+  const grade = createGrade(name, state.materials);
+  state.grades.push(grade);
+  state.activeGradeId = grade.id;
+  newGradeName.value = "";
+  gradeMessage.textContent = `已添加 ${name}，可录入对应配合比。`;
   renderRows();
   scheduleSave();
 }
@@ -427,11 +504,17 @@ document.addEventListener("click", (event) => {
 
   if (target.dataset.action === "delete") {
     handleDelete(target);
+  } else if (target.dataset.action === "select-grade") {
+    selectGrade(target.dataset.gradeId);
   }
 });
 
 document.querySelector("#addMaterial").addEventListener("click", () => {
-  state.materials.push(createMaterial());
+  const material = createMaterial();
+  state.materials.push(material);
+  state.grades.forEach((grade) => {
+    grade.quantities[material.id] = "";
+  });
   renderRows();
   scheduleSave();
 });
@@ -440,6 +523,14 @@ document.querySelector("#addOtherCost").addEventListener("click", () => {
   state.otherCosts.push(createOtherCost());
   renderRows();
   scheduleSave();
+});
+
+document.querySelector("#addGrade").addEventListener("click", addGrade);
+newGradeName.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addGrade();
+  }
 });
 
 document.querySelector("#clearAll").addEventListener("click", () => {

@@ -36,7 +36,10 @@
       <aside class="summary-card" aria-live="polite">
         <div class="summary-heading">
           <div>
-            <p class="summary-label">抵扣后成本（估算）</p>
+            <p class="summary-label">
+              <strong class="summary-grade" id="summaryGrade">C30</strong>
+              抵扣后成本（估算）
+            </p>
             <p class="main-total" id="postDeductionCost">¥0.00</p>
             <p class="summary-unit">元 / m³</p>
           </div>
@@ -82,11 +85,32 @@
             <div>
               <p class="section-index">01</p>
               <h2 id="materialsTitle">原材料配合比</h2>
-              <p>按每立方米实际用量填写；吨价与公斤价可切换。</p>
+              <p>每个等级分别保存材料用量；吨价与公斤价可切换。</p>
             </div>
             <button class="button button-secondary" id="addMaterial" type="button">
               ＋ 添加材料
             </button>
+          </div>
+          <div class="grade-picker">
+            <div class="grade-picker-title">
+              <span>混凝土强度等级</span>
+              <small>切换等级不会覆盖其他等级的数据</small>
+            </div>
+            <div class="grade-tabs" id="gradeOptions" role="tablist" aria-label="混凝土强度等级"></div>
+            <div class="grade-add-row">
+              <input
+                id="newGradeName"
+                type="text"
+                maxlength="20"
+                placeholder="新增等级，如 C45"
+                aria-label="新增混凝土强度等级"
+                autocomplete="off"
+              />
+              <button class="button button-secondary" id="addGrade" type="button">
+                添加等级
+              </button>
+            </div>
+            <p class="grade-message" id="gradeMessage" role="status"></p>
           </div>
           <div class="cost-list" id="materialsList"></div>
         </section>

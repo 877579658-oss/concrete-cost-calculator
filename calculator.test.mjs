@@ -5,8 +5,11 @@ import {
   calculateLine,
   calculateTotals,
   createDefaultState,
+  createGrade,
   createMaterial,
   createOtherCost,
+  DEFAULT_GRADE_NAMES,
+  getActiveGrade,
   normalizeStoredState,
   STATE_VERSION,
 } from "./calculator.js";
@@ -156,16 +159,18 @@ test("invalid negatives, percentages and unit pairs fail safely", () => {
 
 test("totals combine materials and other costs without intermediate rounding", () => {
   const state = createDefaultState();
-  state.materials = [
-    createMaterial({
-      name: "水泥",
-      quantity: "333.333",
-      unitPrice: "412.345",
-      priceUnit: "t",
-      taxRate: "13",
-      deductiblePercent: "100",
-    }),
-  ];
+  const material = createMaterial({
+    name: "水泥",
+    unitPrice: "412.345",
+    priceUnit: "t",
+    taxRate: "13",
+    deductiblePercent: "100",
+  });
+  const grade = createGrade("C30", [material]);
+  grade.quantities[material.id] = "333.333";
+  state.materials = [material];
+  state.grades = [grade];
+  state.activeGradeId = grade.id;
   state.otherCosts = [
     createOtherCost({
       name: "运输",
@@ -195,7 +200,7 @@ test("totals combine materials and other costs without intermediate rounding", (
 
 test("stored state round-trips and invalid data is rejected", () => {
   const state = createDefaultState();
-  state.materials[0].quantity = "350";
+  getActiveGrade(state).quantities[state.materials[0].id] = "350";
 
   const restored = normalizeStoredState(JSON.stringify(state));
   assert.deepEqual(restored, state);
@@ -206,4 +211,62 @@ test("stored state round-trips and invalid data is rejected", () => {
   const duplicateIds = structuredClone(state);
   duplicateIds.materials[1].id = duplicateIds.materials[0].id;
   assert.equal(normalizeStoredState(duplicateIds), null);
+});
+
+test("default state includes separate common concrete grades", () => {
+  const state = createDefaultState();
+
+  assert.equal(state.version, STATE_VERSION);
+  assert.deepEqual(
+    state.grades.map((grade) => grade.name),
+    DEFAULT_GRADE_NAMES,
+  );
+  assert.equal(getActiveGrade(state).name, "C30");
+});
+
+test("each grade keeps its own material quantities", () => {
+  const state = createDefaultState();
+  const c15 = state.grades.find((grade) => grade.name === "C15");
+  const c30 = state.grades.find((grade) => grade.name === "C30");
+  const cement = state.materials[0];
+
+  c15.quantities[cement.id] = "220";
+  c30.quantities[cement.id] = "350";
+  state.activeGradeId = c15.id;
+  assert.equal(calculateTotals(state).materialResults[0].valid, true);
+
+  state.activeGradeId = c30.id;
+  assert.equal(calculateTotals(state).materialResults[0].valid, true);
+  assert.equal(c15.quantities[cement.id], "220");
+  assert.equal(c30.quantities[cement.id], "350");
+});
+
+test("version one data migrates into an original grade without losing values", () => {
+  const legacyMaterial = createMaterial({
+    name: "水泥",
+    quantity: "350",
+    unitPrice: "400",
+    priceUnit: "t",
+  });
+  const legacyState = {
+    version: 1,
+    materials: [legacyMaterial],
+    otherCosts: [
+      createOtherCost({ name: "运输", amount: "20", taxRate: "9" }),
+    ],
+  };
+
+  const migrated = normalizeStoredState(legacyState);
+  assert.equal(migrated.version, STATE_VERSION);
+  assert.equal(migrated.materials[0].quantity, undefined);
+  assert.equal(getActiveGrade(migrated).name, "原配合比");
+  assert.equal(
+    getActiveGrade(migrated).quantities[legacyMaterial.id],
+    "350",
+  );
+  assert.deepEqual(
+    migrated.grades.slice(1).map((grade) => grade.name),
+    DEFAULT_GRADE_NAMES,
+  );
+  assert.equal(migrated.otherCosts[0].amount, "20");
 });

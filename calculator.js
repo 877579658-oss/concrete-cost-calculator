@@ -1,7 +1,8 @@
-export const STATE_VERSION = 1;
+export const STATE_VERSION = 2;
 
 export const QUANTITY_UNITS = ["kg", "m3"];
 export const PRICE_MODES = ["included", "excluded"];
+export const DEFAULT_GRADE_NAMES = ["C15", "C20", "C25", "C30", "C35", "C40"];
 
 const PRICE_UNITS_BY_QUANTITY = {
   kg: ["kg", "t"],
@@ -19,7 +20,6 @@ export function createMaterial(overrides = {}) {
   return {
     id: makeId("material"),
     name: "",
-    quantity: "",
     quantityUnit: "kg",
     unitPrice: "",
     priceUnit: "t",
@@ -42,14 +42,39 @@ export function createOtherCost(overrides = {}) {
   };
 }
 
+export function createGrade(name, materials, overrides = {}) {
+  return {
+    id: makeId("grade"),
+    name,
+    quantities: Object.fromEntries(
+      materials.map((material) => [material.id, ""]),
+    ),
+    ...overrides,
+  };
+}
+
 export function createDefaultState() {
+  const materials = ["水泥", "粉煤灰", "砂", "石", "水", "外加剂"].map(
+    (name) => createMaterial({ name }),
+  );
+  const grades = DEFAULT_GRADE_NAMES.map((name) =>
+    createGrade(name, materials),
+  );
+
   return {
     version: STATE_VERSION,
-    materials: ["水泥", "粉煤灰", "砂", "石", "水", "外加剂"].map((name) =>
-      createMaterial({ name }),
-    ),
+    activeGradeId: grades.find((grade) => grade.name === "C30").id,
+    materials,
+    grades,
     otherCosts: [],
   };
+}
+
+export function getActiveGrade(state) {
+  return (
+    state.grades.find((grade) => grade.id === state.activeGradeId) ??
+    state.grades[0]
+  );
 }
 
 export function priceUnitsForQuantity(quantityUnit) {
@@ -179,9 +204,16 @@ export function calculateLine(line, kind = "material") {
 }
 
 export function calculateTotals(state) {
+  const activeGrade = getActiveGrade(state);
   const materialResults = state.materials.map((line) => ({
     id: line.id,
-    ...calculateLine(line, "material"),
+    ...calculateLine(
+      {
+        ...line,
+        quantity: activeGrade?.quantities[line.id] ?? "",
+      },
+      "material",
+    ),
   }));
   const otherResults = state.otherCosts.map((line) => ({
     id: line.id,
@@ -234,6 +266,35 @@ function normalizeMaterial(value) {
     !QUANTITY_UNITS.includes(value.quantityUnit) ||
     !validPriceUnits.includes(value.priceUnit) ||
     !PRICE_MODES.includes(value.priceMode) ||
+    !isNumericField(value.unitPrice) ||
+    !isNumericField(value.taxRate) ||
+    !isNumericField(value.deductiblePercent)
+  ) {
+    return null;
+  }
+
+  return {
+    id: value.id,
+    name: value.name,
+    quantityUnit: value.quantityUnit,
+    unitPrice: String(value.unitPrice ?? ""),
+    priceUnit: value.priceUnit,
+    priceMode: value.priceMode,
+    taxRate: String(value.taxRate ?? ""),
+    deductiblePercent: String(value.deductiblePercent ?? ""),
+  };
+}
+
+function normalizeLegacyMaterial(value) {
+  if (!isRecord(value)) return null;
+  const validPriceUnits = priceUnitsForQuantity(value.quantityUnit);
+
+  if (
+    typeof value.id !== "string" ||
+    typeof value.name !== "string" ||
+    !QUANTITY_UNITS.includes(value.quantityUnit) ||
+    !validPriceUnits.includes(value.priceUnit) ||
+    !PRICE_MODES.includes(value.priceMode) ||
     !isNumericField(value.quantity) ||
     !isNumericField(value.unitPrice) ||
     !isNumericField(value.taxRate) ||
@@ -252,6 +313,31 @@ function normalizeMaterial(value) {
     priceMode: value.priceMode,
     taxRate: String(value.taxRate ?? ""),
     deductiblePercent: String(value.deductiblePercent ?? ""),
+  };
+}
+
+function normalizeGrade(value, materialIds) {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    typeof value.name !== "string" ||
+    value.name.trim() === "" ||
+    !isRecord(value.quantities)
+  ) {
+    return null;
+  }
+
+  const quantities = {};
+  for (const materialId of materialIds) {
+    const quantity = value.quantities[materialId] ?? "";
+    if (!isNumericField(quantity)) return null;
+    quantities[materialId] = String(quantity);
+  }
+
+  return {
+    id: value.id,
+    name: value.name.trim(),
+    quantities,
   };
 }
 
@@ -278,6 +364,97 @@ function normalizeOtherCost(value) {
   };
 }
 
+function migrateVersionOne(state) {
+  if (
+    !isRecord(state) ||
+    !Array.isArray(state.materials) ||
+    !Array.isArray(state.otherCosts) ||
+    state.materials.length > 200 ||
+    state.otherCosts.length > 200
+  ) {
+    return null;
+  }
+
+  const legacyMaterials = state.materials.map(normalizeLegacyMaterial);
+  const otherCosts = state.otherCosts.map(normalizeOtherCost);
+  if (legacyMaterials.includes(null) || otherCosts.includes(null)) {
+    return null;
+  }
+
+  const materials = legacyMaterials.map(({ quantity: _quantity, ...line }) => line);
+  const originalGrade = {
+    id: makeId("grade"),
+    name: "原配合比",
+    quantities: Object.fromEntries(
+      legacyMaterials.map((line) => [line.id, line.quantity]),
+    ),
+  };
+  const presetGrades = DEFAULT_GRADE_NAMES.map((name) =>
+    createGrade(name, materials),
+  );
+  const grades = [originalGrade, ...presetGrades];
+
+  return {
+    version: STATE_VERSION,
+    activeGradeId: originalGrade.id,
+    materials,
+    grades,
+    otherCosts,
+  };
+}
+
+function normalizeVersionTwo(state) {
+  if (
+    !isRecord(state) ||
+    typeof state.activeGradeId !== "string" ||
+    !Array.isArray(state.materials) ||
+    !Array.isArray(state.grades) ||
+    !Array.isArray(state.otherCosts) ||
+    state.materials.length > 200 ||
+    state.grades.length > 100 ||
+    state.otherCosts.length > 200
+  ) {
+    return null;
+  }
+
+  const materials = state.materials.map(normalizeMaterial);
+  if (materials.includes(null)) return null;
+
+  const materialIds = materials.map((material) => material.id);
+  const grades = state.grades.map((grade) =>
+    normalizeGrade(grade, materialIds),
+  );
+  const otherCosts = state.otherCosts.map(normalizeOtherCost);
+  if (grades.includes(null) || otherCosts.includes(null)) {
+    return null;
+  }
+
+  if (
+    grades.length === 0 ||
+    !grades.some((grade) => grade.id === state.activeGradeId)
+  ) {
+    return null;
+  }
+
+  const ids = [...materials, ...grades, ...otherCosts].map((item) => item.id);
+  if (new Set(ids).size !== ids.length) {
+    return null;
+  }
+
+  const gradeNames = grades.map((grade) => grade.name.toLocaleUpperCase("zh-CN"));
+  if (new Set(gradeNames).size !== gradeNames.length) {
+    return null;
+  }
+
+  return {
+    version: STATE_VERSION,
+    activeGradeId: state.activeGradeId,
+    materials,
+    grades,
+    otherCosts,
+  };
+}
+
 export function normalizeStoredState(value) {
   let state = value;
   if (typeof state === "string") {
@@ -288,31 +465,8 @@ export function normalizeStoredState(value) {
     }
   }
 
-  if (
-    !isRecord(state) ||
-    state.version !== STATE_VERSION ||
-    !Array.isArray(state.materials) ||
-    !Array.isArray(state.otherCosts) ||
-    state.materials.length > 200 ||
-    state.otherCosts.length > 200
-  ) {
-    return null;
-  }
-
-  const materials = state.materials.map(normalizeMaterial);
-  const otherCosts = state.otherCosts.map(normalizeOtherCost);
-  if (materials.includes(null) || otherCosts.includes(null)) {
-    return null;
-  }
-
-  const ids = [...materials, ...otherCosts].map((line) => line.id);
-  if (new Set(ids).size !== ids.length) {
-    return null;
-  }
-
-  return {
-    version: STATE_VERSION,
-    materials,
-    otherCosts,
-  };
+  if (!isRecord(state)) return null;
+  if (state.version === 1) return migrateVersionOne(state);
+  if (state.version === STATE_VERSION) return normalizeVersionTwo(state);
+  return null;
 }
