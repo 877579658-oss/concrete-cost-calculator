@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="手机端混凝土每立方米材料成本与可抵扣进项税计算器"
+    />
+    <meta name="theme-color" content="#202522" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="混凝土成本" />
+    <title>混凝土每方成本计算器</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero-inner">
+        <div>
+          <p class="eyebrow">CONCRETE COST</p>
+          <h1>混凝土每方成本</h1>
+          <p class="hero-copy">录入每立方米用量与实际单价，即时核算可抵扣进项税。</p>
+        </div>
+        <div class="privacy-pill">
+          <span class="privacy-dot" aria-hidden="true"></span>
+          数据仅保存在本机
+        </div>
+      </div>
+    </header>
+
+    <div class="app-shell">
+      <aside class="summary-card" aria-live="polite">
+        <div class="summary-heading">
+          <div>
+            <p class="summary-label">抵扣后成本（估算）</p>
+            <p class="main-total" id="postDeductionCost">¥0.00</p>
+            <p class="summary-unit">元 / m³</p>
+          </div>
+          <span class="summary-badge">一般纳税人</span>
+        </div>
+
+        <p class="summary-error" id="summaryError" hidden>
+          请先修正下方标红项目，再查看总计。
+        </p>
+
+        <dl class="summary-grid">
+          <div>
+            <dt>含税支出</dt>
+            <dd id="grossTotal">¥0.00</dd>
+          </div>
+          <div>
+            <dt>理论可抵扣</dt>
+            <dd id="deductibleTax">¥0.00</dd>
+          </div>
+          <div>
+            <dt>不可抵扣税额</dt>
+            <dd id="nonDeductibleTax">¥0.00</dd>
+          </div>
+          <div>
+            <dt>税款合计</dt>
+            <dd id="taxAmount">¥0.00</dd>
+          </div>
+        </dl>
+
+        <div class="subtle-totals">
+          <span>材料 <strong id="materialsGross">¥0.00</strong></span>
+          <span>其他 <strong id="otherGross">¥0.00</strong></span>
+        </div>
+
+        <p class="summary-note">
+          可抵扣税额为理论值，实际抵减取决于合法有效凭证、用途限制及可用销项税。
+        </p>
+      </aside>
+
+      <main class="builder">
+        <section class="panel" aria-labelledby="materialsTitle">
+          <div class="section-heading">
+            <div>
+              <p class="section-index">01</p>
+              <h2 id="materialsTitle">原材料配合比</h2>
+              <p>按每立方米实际用量填写；吨价与公斤价可切换。</p>
+            </div>
+            <button class="button button-secondary" id="addMaterial" type="button">
+              ＋ 添加材料
+            </button>
+          </div>
+          <div class="cost-list" id="materialsList"></div>
+        </section>
+
+        <section class="panel" aria-labelledby="otherCostsTitle">
+          <div class="section-heading">
+            <div>
+              <p class="section-index">02</p>
+              <h2 id="otherCostsTitle">其他费用</h2>
+              <p>人工、搅拌、运输等按元/m³ 计入。</p>
+            </div>
+            <button class="button button-secondary" id="addOtherCost" type="button">
+              ＋ 添加费用
+            </button>
+          </div>
+          <div class="cost-list" id="otherCostsList"></div>
+        </section>
+
+        <div class="tax-note">
+          <strong>税务提示</strong>
+          <p>
+            快捷税率仅用于录入。请在每项按实际发票选择税率及可抵扣比例；工具不会判断发票真伪、抵扣用途或销项税是否充足。
+          </p>
+        </div>
+
+        <div class="builder-actions">
+          <span id="saveStatus" role="status">数据自动保存在本机</span>
+          <button class="button button-danger" id="clearAll" type="button">
+            清空全部
+          </button>
+        </div>
+      </main>
+    </div>
+
+    <datalist id="tax-rate-options">
+      <option value="13">13%</option>
+      <option value="9">9%</option>
+      <option value="6">6%</option>
+      <option value="3">3%</option>
+      <option value="1">1%</option>
+      <option value="0">0%</option>
+    </datalist>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
