@@ -1,4 +1,4 @@
-const CACHE_NAME = "concrete-cost-calculator-v3";
+const CACHE_NAME = "concrete-cost-calculator-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
